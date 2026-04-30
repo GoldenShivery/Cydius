@@ -3,9 +3,9 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @State private var searchText = ""
-    @State private var selectedCategory: CydiusApp.AppCategory? = nil
+    @State private var selectedCategory: AppItem.AppCategory? = nil
 
-    var filtered: [CydiusApp] {
+    var filtered: [AppItem] {
         store.featuredApps.filter {
             (searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText)) &&
             (selectedCategory == nil || $0.category == selectedCategory)
@@ -66,7 +66,7 @@ struct HomeView: View {
                                 CategoryPill(title: "All", isSelected: selectedCategory == nil) {
                                     selectedCategory = nil
                                 }
-                                ForEach(CydiusApp.AppCategory.allCases, id: \.self) { cat in
+                                ForEach(AppItem.AppCategory.allCases, id: \.self) { cat in
                                     CategoryPill(title: cat.rawValue, isSelected: selectedCategory == cat) {
                                         selectedCategory = selectedCategory == cat ? nil : cat
                                     }
@@ -131,7 +131,7 @@ struct CategoryPill: View {
 }
 
 struct FeaturedBanner: View {
-    let app: CydiusApp
+    let app: AppItem
     let onInstall: () -> Void
 
     var body: some View {
@@ -194,7 +194,7 @@ struct SectionHeader: View {
 }
 
 struct AppRow: View {
-    let app: CydiusApp
+    let app: AppItem
     let onInstall: () -> Void
     @State private var pressed = false
 
