@@ -8,7 +8,6 @@ struct AppItem: Identifiable, Codable {
     var developer: String
     var description: String
     var downloadURL: String
-    var iconURL: String
     var size: String
     var category: AppCategory
     var isInstalled: Bool = false
