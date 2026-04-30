@@ -37,7 +37,20 @@ class AppStore: ObservableObject {
     @Published var selectedCertificateID: UUID? = nil
 
     // Apple ID for signing
-    @Published var appleID: String = ""
+        @Published var appleID: String = ""
+
+    // Computed properties for view access
+    var installedApps: [AppModel] {
+        apps.filter { $0.isInstalled }
+    }
+    
+    var featuredApps: [AppModel] {
+        apps
+    }
+    
+    var selectedCertificate: Certificate? {
+        certificates.first { $0.id == selectedCertificateID }
+    }
 
     // Stats
     @Published var totalInstalled: Int = 1
