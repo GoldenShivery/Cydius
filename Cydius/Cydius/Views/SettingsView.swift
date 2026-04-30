@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var store: AppStore
-    @State private var appleID = ""
 
     var body: some View {
         NavigationView {
@@ -11,20 +10,6 @@ struct SettingsView: View {
 
                 ScrollView {
                     VStack(spacing: 20) {
-
-                        // Logo header - orange card with your logo
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 24)
-                                .fill(Color.orange)
-                                .frame(height: 180)
-
-                            Image("CydiusLogo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 140, height: 140)
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 10)
 
                         // Stats card
                         HStack(spacing: 0) {
@@ -37,32 +22,73 @@ struct SettingsView: View {
                         .cornerRadius(16)
                         .padding(.horizontal)
 
-                        // Signing section
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("SIGNING")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.gray)
-                                .padding(.horizontal)
+                        // Security section
+                        SectionHeader(title: "SECURITY")
 
-                            HStack {
-                                Image(systemName: "person.circle")
-                                    .foregroundColor(.orange)
-                                    .frame(width: 28)
-                                TextField("Apple ID (optional)", text: $appleID)
-                                    .foregroundColor(.white)
-                                    .autocapitalization(.none)
-                                    .keyboardType(.emailAddress)
+                        VStack(spacing: 0) {
+                            // Safe Sign
+                            VStack(alignment: .leading, spacing: 4) {
+                                Toggle(isOn: $store.safeSignEnabled) {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "shield.checkered")
+                                            .foregroundColor(.orange)
+                                            .frame(width: 28)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Safe Sign")
+                                                .foregroundColor(.white)
+                                                .fontWeight(.semibold)
+                                            Text("Scans IPAs for viruses, malware & spyware before installing")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                }
+                                .toggleStyle(SwitchToggleStyle(tint: .orange))
+                                .padding(14)
                             }
-                            .padding(14)
-                            .background(Color.white.opacity(0.06))
-                            .cornerRadius(14)
-                            .padding(.horizontal)
+
+                            Divider().background(Color.white.opacity(0.08)).padding(.leading, 50)
+
+                            // Smart Sign
+                            VStack(alignment: .leading, spacing: 4) {
+                                Toggle(isOn: $store.smartSignEnabled) {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "wifi")
+                                            .foregroundColor(.orange)
+                                            .frame(width: 28)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Smart Sign")
+                                                .foregroundColor(.white)
+                                                .fontWeight(.semibold)
+                                            Text("Only sideload when connected to WiFi, Ethernet or Mobile Data")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                }
+                                .toggleStyle(SwitchToggleStyle(tint: .orange))
+                                .padding(14)
+                            }
                         }
+                        .background(Color.white.opacity(0.06))
+                        .cornerRadius(14)
+                        .padding(.horizontal)
+
+                        // Certificates section
+                        SectionHeader(title: "CERTIFICATES")
+
+                        VStack(spacing: 10) {
+                            ForEach(store.certificates) { cert in
+                                CertificateRow(cert: cert, isSelected: store.selectedCertificate?.id == cert.id) {
+                                    store.selectedCertificate = cert
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
 
                         Spacer(minLength: 80)
                     }
-                    .padding(.top, 10)
+                    .padding(.top, 16)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -74,6 +100,18 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+}
+
+struct SectionHeader: View {
+    let title: String
+    var body: some View {
+        Text(title)
+            .font(.caption)
+            .fontWeight(.semibold)
+            .foregroundColor(.gray)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
     }
 }
 
@@ -92,5 +130,91 @@ struct StatBlock: View {
                 .foregroundColor(.gray)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+struct CertificateRow: View {
+    let cert: CydCertificate
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var statusColor: Color {
+        switch cert.status {
+        case .safe: return .green
+        case .revoked: return .red
+        case .expired: return .orange
+        }
+    }
+
+    var statusText: String {
+        switch cert.status {
+        case .safe: return "Valid"
+        case .revoked: return "Revoked"
+        case .expired: return "Expired"
+        }
+    }
+
+    var expiryText: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        let now = Date()
+        if cert.expiryDate < now {
+            return "Expired"
+        }
+        let days = Calendar.current.dateComponents([.day], from: now, to: cert.expiryDate).day ?? 0
+        return "Expires in \(days)d • \(formatter.string(from: cert.expiryDate))"
+    }
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                // Country flag placeholder
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 40, height: 40)
+                    Text(cert.country)
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(cert.name)
+                        .foregroundColor(.white)
+                        .fontWeight(.semibold)
+                        .font(.subheadline)
+                    Text(expiryText)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(statusText)
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(statusColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(statusColor.opacity(0.15))
+                        .cornerRadius(8)
+
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                    }
+                }
+            }
+            .padding(12)
+            .background(isSelected ? Color.orange.opacity(0.1) : Color.white.opacity(0.06))
+            .cornerRadius(14)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isSelected ? Color.orange.opacity(0.5) : Color.clear, lineWidth: 1)
+            )
+        }
     }
 }
