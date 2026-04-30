@@ -5,11 +5,11 @@ struct AppModel: Identifiable, Codable {
     var name: String
     var bundleID: String
     var version: String
-    var developer: String
-    var description: String
-    var downloadURL: String
-    var size: String
-    var category: AppCategory
+    var developer: String = ""
+    var description: String = ""
+    var downloadURL: String = ""
+    var size: String = ""
+    var category: AppCategory = .apps
     var isInstalled: Bool = false
     var installProgress: Double = 0
 
