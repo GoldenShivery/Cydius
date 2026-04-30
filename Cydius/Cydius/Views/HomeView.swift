@@ -13,100 +13,90 @@ struct HomeView: View {
     }
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            Color.black.ignoresSafeArea()
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        // Header
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Cydius")
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
-                                Text("community app store")
-                                    .font(.system(size: 13, weight: .regular))
-                                    .foregroundColor(.gray)
-                            }
-                            Spacer()
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(Color.orange)
-                                    .frame(width: 44, height: 44)
-                                Text("⬇️")
-                                    .font(.system(size: 22))
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
-                        .padding(.bottom, 20)
-
-                        // Search
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.gray)
-                                .font(.system(size: 15))
-                            TextField("search apps, tweaks, tools...", text: $searchText)
-                                .foregroundColor(.white)
-                                .font(.system(size: 15))
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(Color(white: 0.1))
-                        .cornerRadius(12)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 16)
-
-                        // Category pills
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                CategoryPill(title: "All", isSelected: selectedCategory == nil) {
-                                    selectedCategory = nil
-                                }
-                                ForEach(AppItem.AppCategory.allCases, id: \.self) { cat in
-                                    CategoryPill(title: cat.rawValue, isSelected: selectedCategory == cat) {
-                                        selectedCategory = selectedCategory == cat ? nil : cat
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
-                        .padding(.bottom, 20)
-
-                        // Featured banner
-                        if searchText.isEmpty && selectedCategory == nil {
-                            FeaturedBanner(app: store.featuredApps.first!) {
-                                store.beginInstall(app: store.featuredApps.first!)
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 24)
-
-                            SectionHeader(title: "all apps")
-                        }
-
-                        // App list
-                        LazyVStack(spacing: 0) {
-                            ForEach(filtered) { app in
-                                AppRow(app: app) {
-                                    store.beginInstall(app: app)
-                                }
-                                Divider()
-                                    .background(Color(white: 0.12))
-                                    .padding(.leading, 76)
-                            }
-                        }
-                        .padding(.bottom, 30)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // Header — just "Cydius" with your logo
+                    HStack {
+                        Text("Cydius")
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Image("AppIcon")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 20)
+
+                    // Search
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                            .font(.system(size: 15))
+                        TextField("search apps, tweaks, tools...", text: $searchText)
+                            .foregroundColor(.white)
+                            .font(.system(size: 15))
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(Color(white: 0.1))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+
+                    // Category pills
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            CategoryPill(title: "All", isSelected: selectedCategory == nil) {
+                                selectedCategory = nil
+                            }
+                            ForEach(AppItem.AppCategory.allCases, id: \.self) { cat in
+                                CategoryPill(title: cat.rawValue, isSelected: selectedCategory == cat) {
+                                    selectedCategory = selectedCategory == cat ? nil : cat
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    .padding(.bottom, 20)
+
+                    // Featured banner
+                    if searchText.isEmpty && selectedCategory == nil && !store.featuredApps.isEmpty {
+                        FeaturedBanner(app: store.featuredApps.first!) {
+                            store.beginInstall(app: store.featuredApps.first!)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
+
+                        SectionHeader(title: "all apps")
+                    }
+
+                    // App list
+                    LazyVStack(spacing: 0) {
+                        ForEach(filtered) { app in
+                            AppRow(app: app) {
+                                store.beginInstall(app: app)
+                            }
+                            Divider()
+                                .background(Color(white: 0.12))
+                                .padding(.leading, 76)
+                        }
+                    }
+                    .padding(.bottom, 100)
                 }
             }
-            .navigationBarHidden(true)
-            .sheet(isPresented: $store.showInstallSheet) {
-                InstallSheetView()
-                    .environmentObject(store)
-            }
+        }
+        .sheet(isPresented: $store.showInstallSheet) {
+            InstallSheetView()
+                .environmentObject(store)
         }
     }
 }
@@ -196,7 +186,6 @@ struct SectionHeader: View {
 struct AppRow: View {
     let app: AppItem
     let onInstall: () -> Void
-    @State private var pressed = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -204,8 +193,13 @@ struct AppRow: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(Color.orange.opacity(0.15))
                     .frame(width: 54, height: 54)
-                Text("⬇️")
-                    .font(.system(size: 26))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.orange.opacity(0.3), lineWidth: 0.5)
+                    )
+                Text(String(app.name.prefix(1)))
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundColor(.orange)
             }
 
             VStack(alignment: .leading, spacing: 3) {
