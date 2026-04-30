@@ -1,105 +1,73 @@
-import SwiftUI
-import Combine
-
-class AppStore: ObservableObject {
-    @Published var apps: [AppModel] = [
-        AppModel(
-            name: "Cydius",
-            bundleID: "com.cydius.app",
-            version: "1.0",
-            developer: "Cydius Team",
-            description: "Main Cydius application",
-            downloadURL: "",
-            size: "45 MB",
-            category: .apps,
-            isInstalled: true
-        ),
-        AppModel(
-            name: "Cydius Lightweight",
-            bundleID: "com.cydius.lite",
-            version: "1.0",
-            developer: "Cydius Team",
-            description: "Lighter version of Cydius",
-            downloadURL: "",
-            size: "25 MB",
-            category: .apps,
-            isInstalled: false
-        )
-    ]
+struct CertificateRow: View {
+    let cert: Certificate   // ← Changed from CydCertificate to Certificate
+    let isSelected: Bool
+    let onSelect: () -> Void
     
-    var installedApps: [AppModel] {
-        apps.filter { $0.isInstalled }
-    }
-    
-    var featuredApps: [AppModel] {
-        apps
-    }
-    
-    @Published var selectedCertificate: Certificate?
-    
-    @Published var safeSignEnabled: Bool = false
-    @Published var smartSignEnabled: Bool = false
-    
-    @Published var certificates: [Certificate] = [
-        Certificate(
-            name: "Cydius Developer",
-            country: "US",
-            status: .safe,
-            expiryDate: Calendar.current.date(byAdding: .day, value: 365, to: Date()) ?? Date(),
-            isSelected: true
-        ),
-        Certificate(
-            name: "Enterprise Signing",
-            country: "CN",
-            status: .revoked,
-            expiryDate: Calendar.current.date(byAdding: .day, value: 180, to: Date()) ?? Date(),
-            isSelected: false
-        ),
-        Certificate(
-            name: "Test Certificate",
-            country: "UK",
-            status: .expired,
-            expiryDate: Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date(),
-            isSelected: false
-        )
-    ]
-    
-    func reinstallApp(_ app: AppModel) {
-        guard let index = apps.firstIndex(where: { $0.id == app.id }) else { return }
-        apps[index].isInstalled = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            self.apps[index].isInstalled = true
+    var statusColor: Color {
+        switch cert.status {
+        case .safe: return .green
+        case .revoked: return .red
+        case .expired: return .orange
         }
     }
     
-    func openApp(_ app: AppModel) {
-        print("Opening \(app.name)")
+    var statusText: String {
+        switch cert.status {
+        case .safe: return "Valid"
+        case .revoked: return "Revoked"
+        case .expired: return "Expired"
+        }
     }
     
-    func installIPA(from url: URL) {
-        print("Installing IPA from: \(url)")
-    }
-}
-
-struct Certificate: Identifiable {
-    let id = UUID()
-    let name: String
-    let country: String
-    let status: CertificateStatus
-    let expiryDate: Date
-    var isSelected: Bool
-    
-    enum CertificateStatus {
-        case safe
-        case revoked
-        case expired
-        
-        var displayText: String {
-            switch self {
-            case .safe: return "Valid"
-            case .revoked: return "Revoked"
-            case .expired: return "Expired"
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 40, height: 40)
+                    Text(cert.country)
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                }
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(cert.name)
+                        .foregroundColor(.white)
+                        .fontWeight(.semibold)
+                        .font(.subheadline)
+                    Text("Expires: \(cert.expiryDate, style: .date)")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(statusText)
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(statusColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(statusColor.opacity(0.15))
+                        .cornerRadius(8)
+                    
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                    }
+                }
             }
+            .padding(12)
+            .background(isSelected ? Color.orange.opacity(0.1) : Color.white.opacity(0.06))
+            .cornerRadius(14)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isSelected ? Color.orange.opacity(0.5) : Color.clear, lineWidth: 1)
+            )
         }
     }
 }
