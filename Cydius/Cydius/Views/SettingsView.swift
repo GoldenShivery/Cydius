@@ -14,6 +14,7 @@ struct SettingsView: View {
                         // Stats card
                         HStack(spacing: 0) {
                             StatBlock(value: "\(store.totalInstalled)", label: "Installed")
+                            Divider().background(Color.white.opacity(0.1))
                             StatBlock(value: "\(store.apps.count)", label: "Available")
                         }
                         .frame(height: 70)
@@ -79,7 +80,7 @@ struct SettingsView: View {
                         VStack(spacing: 10) {
                             ForEach(store.certificates) { cert in
                                 CertificateRow(cert: cert, isSelected: store.selectedCertificate?.id == cert.id) {
-                                    store.selectedCertificate = cert
+                                    store.selectCertificate(cert)
                                 }
                             }
                         }
@@ -138,44 +139,22 @@ struct CertificateRow: View {
     let onSelect: () -> Void
 
     var statusColor: Color {
-        switch cert.status {
-        case .valid: return .green 
-        case .revoked: return .red
-        case .expired: return .orange
-        }
+        cert.status.color
     }
 
     var statusText: String {
-        switch cert.status {
-        case .valid: return "Valid"
-        case .revoked: return "Revoked"
-        case .expired: return "Expired"
-        }
-    }
-
-    var expiryText: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        let now = Date()
-        if cert.expiryDate < now {
-            return "Expired"
-        }
-        let days = Calendar.current.dateComponents([.day], from: now, to: cert.expiryDate).day ?? 0
-        return "Expires in \(days)d • \(formatter.string(from: cert.expiryDate))"
+        cert.status.label
     }
 
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
-                // Country flag placeholder
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color.white.opacity(0.1))
                         .frame(width: 40, height: 40)
-                    Text(cert.country)
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                    Text(cert.flagEmoji)
+                        .font(.title2)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -183,7 +162,7 @@ struct CertificateRow: View {
                         .foregroundColor(.white)
                         .fontWeight(.semibold)
                         .font(.subheadline)
-                    Text(expiryText)
+                    Text(cert.expiryFormatted)
                         .font(.caption2)
                         .foregroundColor(.gray)
                 }
