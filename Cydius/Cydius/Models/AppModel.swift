@@ -1,6 +1,6 @@
 import Foundation
 
-struct AppItem: Identifiable, Codable {
+struct AppModel: Identifiable, Codable {
     var id = UUID()
     var name: String
     var bundleID: String
