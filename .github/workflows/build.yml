@@ -10,10 +10,11 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      - run: sudo xcode-select -s /Applications/Xcode_15.4.app
       - run: |
-          cd Cydius/Cydius
-          xcodebuild -project Cydius.xcodeproj -scheme Cydius -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO -derivedDataPath ../../build
-          cd ../..
+          cd Cydius
+          xcodebuild -project Cydius.xcodeproj -scheme Cydius -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO -derivedDataPath ../build
+          cd ..
           mkdir Payload
           cp -r build/Build/Products/Release-iphoneos/Cydius.app Payload/
           zip -r Cydius.ipa Payload
