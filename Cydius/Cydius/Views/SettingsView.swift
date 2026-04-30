@@ -13,9 +13,8 @@ struct SettingsView: View {
 
                         // Stats card
                         HStack(spacing: 0) {
-                            StatBlock(value: "\(store.installedApps.count)", label: "Installed")
-                            Divider().background(Color.white.opacity(0.1))
-                            StatBlock(value: "\(store.featuredApps.count)", label: "Available")
+                            StatBlock(value: "\(store.totalInstalled)", label: "Installed")
+                            StatBlock(value: "\(store.apps.count)", label: "Available")
                         }
                         .frame(height: 70)
                         .background(Color.white.opacity(0.06))
@@ -134,13 +133,13 @@ struct StatBlock: View {
 }
 
 struct CertificateRow: View {
-    let cert: CydCertificate
+    let cert: Certificate
     let isSelected: Bool
     let onSelect: () -> Void
 
     var statusColor: Color {
         switch cert.status {
-        case .safe: return .green
+        case .valid: return .green 
         case .revoked: return .red
         case .expired: return .orange
         }
@@ -148,7 +147,7 @@ struct CertificateRow: View {
 
     var statusText: String {
         switch cert.status {
-        case .safe: return "Valid"
+        case .valid: return "Valid"
         case .revoked: return "Revoked"
         case .expired: return "Expired"
         }
