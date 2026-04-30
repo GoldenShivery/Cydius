@@ -54,40 +54,63 @@ class AppStore: ObservableObject {
     private func runInstallPipeline() {
         let appName = activeInstall?.name ?? "app"
         let bundleID = activeInstall?.bundleID ?? "com.app"
+        let size = activeInstall?.size ?? "0 MB"
+        let version = activeInstall?.version ?? "1.0"
+
         let stageLogs: [[LogLine]] = [
             [
-                LogLine(text: "→ connecting to source...", type: .info),
-                LogLine(text: "→ resolved CDN endpoint", type: .info),
-                LogLine(text: "→ downloading \(appName).ipa", type: .system),
-                LogLine(text: "✓ download complete", type: .success),
+                LogLine(text: "[\(timestamp())] initializing download session", type: .system),
+                LogLine(text: "[\(timestamp())] resolving host: cdn.cydius.app", type: .info),
+                LogLine(text: "[\(timestamp())] GET /ipa/\(bundleID)/\(version).ipa HTTP/2", type: .system),
+                LogLine(text: "[\(timestamp())] 200 OK — content-length: \(size)", type: .info),
+                LogLine(text: "[\(timestamp())] receiving data chunks... 0%", type: .info),
+                LogLine(text: "[\(timestamp())] receiving data chunks... 48%", type: .info),
+                LogLine(text: "[\(timestamp())] receiving data chunks... 100%", type: .info),
+                LogLine(text: "[\(timestamp())] checksum SHA256 verified ✓", type: .success),
+                LogLine(text: "[\(timestamp())] download complete: \(appName).ipa", type: .success),
             ],
             [
-                LogLine(text: "→ opening zip container", type: .info),
-                LogLine(text: "→ extracting Payload/", type: .info),
-                LogLine(text: "→ found 247 bundle files", type: .system),
-                LogLine(text: "✓ archive unpacked", type: .success),
+                LogLine(text: "[\(timestamp())] opening zip container", type: .system),
+                LogLine(text: "[\(timestamp())] found: Payload/\(appName).app/", type: .info),
+                LogLine(text: "[\(timestamp())] extracting binary: \(appName)", type: .info),
+                LogLine(text: "[\(timestamp())] extracting frameworks: 12 found", type: .info),
+                LogLine(text: "[\(timestamp())] extracting resources: 847 files", type: .system),
+                LogLine(text: "[\(timestamp())] extracting Info.plist", type: .info),
+                LogLine(text: "[\(timestamp())] unpack complete — \(size) extracted", type: .success),
             ],
             [
-                LogLine(text: "→ reading Info.plist", type: .info),
-                LogLine(text: "→ bundle ID: \(bundleID)", type: .system),
-                LogLine(text: "⚠ original signature stripped", type: .warning),
-                LogLine(text: "✓ bundle structure valid", type: .success),
+                LogLine(text: "[\(timestamp())] reading Info.plist", type: .system),
+                LogLine(text: "[\(timestamp())] CFBundleIdentifier: \(bundleID)", type: .info),
+                LogLine(text: "[\(timestamp())] CFBundleVersion: \(version)", type: .info),
+                LogLine(text: "[\(timestamp())] MinimumOSVersion: 16.0", type: .info),
+                LogLine(text: "[\(timestamp())] stripping original codesig...", type: .system),
+                LogLine(text: "[\(timestamp())] ⚠ entitlements: get-task-allow=false", type: .warning),
+                LogLine(text: "[\(timestamp())] bundle structure: valid ✓", type: .success),
             ],
             [
-                LogLine(text: "→ loading provisioning profile", type: .info),
-                LogLine(text: "→ signing binary + frameworks", type: .info),
-                LogLine(text: "→ injecting entitlements", type: .system),
-                LogLine(text: "✓ codesign verified SHA-256", type: .success),
+                LogLine(text: "[\(timestamp())] loading certificate chain", type: .system),
+                LogLine(text: "[\(timestamp())] cert: Apple Development (valid)", type: .info),
+                LogLine(text: "[\(timestamp())] provisioning profile: matched ✓", type: .info),
+                LogLine(text: "[\(timestamp())] signing binary: \(appName)", type: .system),
+                LogLine(text: "[\(timestamp())] signing framework: Foundation.framework", type: .info),
+                LogLine(text: "[\(timestamp())] signing framework: SwiftUI.framework", type: .info),
+                LogLine(text: "[\(timestamp())] injecting entitlements", type: .system),
+                LogLine(text: "[\(timestamp())] codesign --verify SHA256: OK ✓", type: .success),
             ],
             [
-                LogLine(text: "→ device handshake OK", type: .info),
-                LogLine(text: "→ pushing to /var/tmp/", type: .info),
-                LogLine(text: "→ installd pipeline running", type: .system),
-                LogLine(text: "✓ installation complete!", type: .success),
+                LogLine(text: "[\(timestamp())] connecting to installd", type: .system),
+                LogLine(text: "[\(timestamp())] device handshake: OK", type: .info),
+                LogLine(text: "[\(timestamp())] pushing to /var/tmp/\(bundleID).ipa", type: .system),
+                LogLine(text: "[\(timestamp())] installd: validating bundle...", type: .info),
+                LogLine(text: "[\(timestamp())] installd: installing to /var/containers/", type: .system),
+                LogLine(text: "[\(timestamp())] installd: registering with SpringBoard", type: .info),
+                LogLine(text: "[\(timestamp())] SpringBoard: reloading icon cache", type: .system),
+                LogLine(text: "[\(timestamp())] ✓ \(appName) installed successfully!", type: .success),
             ],
         ]
-        let stageDurations: [Double] = [1.8, 1.2, 1.4, 1.6, 2.0]
-        let stageProgressRanges: [(Double, Double)] = [(0,18),(18,38),(38,58),(58,80),(80,100)]
+
+        let stageDurations: [Double] = [2.5, 1.8, 1.6, 2.0, 2.2]
+        let stageProgressRanges: [(Double, Double)] = [(0, 18), (18, 38), (38, 58), (58, 80), (80, 100)]
 
         func runStage(_ index: Int) {
             guard index < installStages.count else {
@@ -101,6 +124,7 @@ class AppStore: ObservableObject {
                 }
                 return
             }
+
             DispatchQueue.main.async {
                 self.currentStageIndex = index
                 for i in 0..<self.installStages.count {
@@ -109,10 +133,12 @@ class AppStore: ObservableObject {
                     else { self.installStages[i].status = .waiting }
                 }
             }
+
             let logs = stageLogs[index]
             let range = stageProgressRanges[index]
             let duration = stageDurations[index]
             let logInterval = duration / Double(logs.count)
+
             for (i, log) in logs.enumerated() {
                 DispatchQueue.main.asyncAfter(deadline: .now() + logInterval * Double(i)) {
                     self.installLog.append(log)
@@ -120,15 +146,24 @@ class AppStore: ObservableObject {
                     self.installProgress = range.0 + fraction * (range.1 - range.0)
                 }
             }
+
             DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.3) {
                 runStage(index + 1)
             }
         }
+
         runStage(0)
+    }
+
+    private func timestamp() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss.SSS"
+        return f.string(from: Date())
     }
 
     func cancelInstall() {
         showInstallSheet = false
         activeInstall = nil
+        installComplete = false
     }
 }
