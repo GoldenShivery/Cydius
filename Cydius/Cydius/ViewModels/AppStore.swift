@@ -7,97 +7,99 @@ class AppStore: ObservableObject {
             name: "Cydius",
             bundleID: "com.cydius.app",
             version: "1.0",
+            developer: "Cydius Team",
+            description: "Main Cydius application",
+            downloadURL: "",
+            size: "45 MB",
+            category: .apps,
             isInstalled: true
         ),
         AppModel(
             name: "Cydius Lightweight",
             bundleID: "com.cydius.lite",
             version: "1.0",
+            developer: "Cydius Team",
+            description: "Lighter version of Cydius",
+            downloadURL: "",
+            size: "25 MB",
+            category: .apps,
             isInstalled: false
         )
     ]
-
-    // Safe Sign — scans files for safety before installing
+    
+    var installedApps: [AppModel] {
+        apps.filter { $0.isInstalled }
+    }
+    
+    var featuredApps: [AppModel] {
+        apps
+    }
+    
+    @Published var selectedCertificate: Certificate?
+    
     @Published var safeSignEnabled: Bool = false
-
-    // Smart Sign — requires network connection to sideload
     @Published var smartSignEnabled: Bool = false
-
-    // Certificates
+    
     @Published var certificates: [Certificate] = [
         Certificate(
             name: "Cydius Developer",
             country: "US",
-            status: .valid,
-            expiry: Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date(),
+            status: .safe,
+            expiryDate: Calendar.current.date(byAdding: .day, value: 365, to: Date()) ?? Date(),
             isSelected: true
+        ),
+        Certificate(
+            name: "Enterprise Signing",
+            country: "CN",
+            status: .revoked,
+            expiryDate: Calendar.current.date(byAdding: .day, value: 180, to: Date()) ?? Date(),
+            isSelected: false
+        ),
+        Certificate(
+            name: "Test Certificate",
+            country: "UK",
+            status: .expired,
+            expiryDate: Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date(),
+            isSelected: false
         )
     ]
-
-    @Published var selectedCertificateID: UUID? = nil
-
-    // Apple ID for signing
-    @Published var appleID: String = ""
-
-    // Stats
-    @Published var totalInstalled: Int = 1
-    @Published var totalSideloaded: Int = 0
-
+    
     func reinstallApp(_ app: AppModel) {
-        // Trigger reinstall logic
-        if let idx = apps.firstIndex(where: { $0.id == app.id }) {
-            apps[idx].isInstalled = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                self.apps[idx].isInstalled = true
-            }
+        guard let index = apps.firstIndex(where: { $0.id == app.id }) else { return }
+        apps[index].isInstalled = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            self.apps[index].isInstalled = true
         }
     }
-
-    func selectCertificate(_ cert: Certificate) {
-        selectedCertificateID = cert.id
+    
+    func openApp(_ app: AppModel) {
+        print("Opening \(app.name)")
+    }
+    
+    func installIPA(from url: URL) {
+        print("Installing IPA from: \(url)")
     }
 }
-
-// MARK: - Models
 
 struct Certificate: Identifiable {
     let id = UUID()
     let name: String
     let country: String
-    let status: CertStatus
-    let expiry: Date
+    let status: CertificateStatus
+    let expiryDate: Date
     var isSelected: Bool
-
-    enum CertStatus {
-        case valid, revoked, expired
-
-        var label: String {
+    
+    enum CertificateStatus {
+        case safe
+        case revoked
+        case expired
+        
+        var displayText: String {
             switch self {
-            case .valid: return "Valid"
+            case .safe: return "Valid"
             case .revoked: return "Revoked"
             case .expired: return "Expired"
             }
         }
-
-        var color: Color {
-            switch self {
-            case .valid: return .green
-            case .revoked: return .red
-            case .expired: return .orange
-            }
-        }
-    }
-
-    var expiryFormatted: String {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        return f.string(from: expiry)
-    }
-
-    var flagEmoji: String {
-        let base: UInt32 = 127397
-        return country.unicodeScalars.compactMap {
-            Unicode.Scalar(base + $0.value).map { String($0) }
-        }.joined()
     }
 }
