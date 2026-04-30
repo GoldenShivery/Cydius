@@ -1,171 +1,103 @@
-import Foundation
 import SwiftUI
+import Combine
 
 class AppStore: ObservableObject {
-    @Published var featuredApps: [AppItem] = []
-    @Published var installedApps: [AppItem] = []
-    @Published var activeInstall: AppItem? = nil
-    @Published var installLogs: [String] = []
-    @Published var installProgress: Double = 0
-    @Published var isInstalling: Bool = false
-    @Published var certificates: [CydCertificate] = []
-    @Published var safeSignEnabled: Bool = true
-    @Published var smartSignEnabled: Bool = true
-    @Published var selectedCertificate: CydCertificate? = nil
-
-    init() {
-        loadBuiltInApps()
-        loadSampleCertificates()
-    }
-
-    func loadBuiltInApps() {
-        featuredApps = [
-            AppItem(
-                name: "Cydius",
-                bundleID: "com.cydius.app",
-                version: "1.0.0",
-                developer: "Cydius Team",
-                description: "The original Cydius sideloading app.",
-                downloadURL: "https://github.com/GoldenShivery/Cydius/releases/latest/download/Cydius.ipa",
-                size: "12 MB",
-                category: .apps
-            ),
-            AppItem(
-                name: "Cydius Lightweight",
-                bundleID: "com.cydius.lite",
-                version: "1.0.0",
-                developer: "Cydius Team",
-                description: "A lighter version of Cydius with fewer features.",
-                downloadURL: "https://github.com/GoldenShivery/Cydius/releases/latest/download/CydiusLite.ipa",
-                size: "6 MB",
-                category: .apps
-            )
-        ]
-    }
-
-    func loadSampleCertificates() {
-        certificates = [
-            CydCertificate(
-                name: "Free Developer Cert",
-                country: "US",
-                status: .safe,
-                expiryDate: Calendar.current.date(byAdding: .day, value: 7, to: Date())!,
-                isSelected: true
-            ),
-            CydCertificate(
-                name: "Enterprise Cert",
-                country: "GB",
-                status: .revoked,
-                expiryDate: Calendar.current.date(byAdding: .day, value: -2, to: Date())!,
-                isSelected: false
-            )
-        ]
-        selectedCertificate = certificates.first
-    }
-
-    func beginInstall(app: AppItem) {
-        guard !isInstalling else { return }
-        activeInstall = app
-        isInstalling = true
-        installLogs = []
-        installProgress = 0
-
-        simulateInstall(app: app)
-    }
-
-    func installIPA(url: URL) {
-        guard !isInstalling else { return }
-        let fakeApp = AppItem(
-            name: url.deletingPathExtension().lastPathComponent,
-            bundleID: "com.sideloaded.\(url.deletingPathExtension().lastPathComponent.lowercased())",
+    @Published var apps: [AppModel] = [
+        AppModel(
+            name: "Cydius",
+            bundleID: "com.cydius.app",
             version: "1.0",
-            developer: "Sideloaded",
-            description: "Sideloaded via Cydius",
-            downloadURL: url.absoluteString,
-            size: "Unknown",
-            category: .apps
+            isInstalled: true
+        ),
+        AppModel(
+            name: "Cydius Lightweight",
+            bundleID: "com.cydius.lite",
+            version: "1.0",
+            isInstalled: false
         )
-        activeInstall = fakeApp
-        isInstalling = true
-        installLogs = []
-        installProgress = 0
-        simulateInstall(app: fakeApp)
-    }
+    ]
 
-    func scanURL(_ urlString: String, completion: @escaping (ScanResult) -> Void) {
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) {
-            // Simulate scan - in real app would call VirusTotal or similar
-            let isSuspicious = urlString.contains("mediafire") || urlString.contains("mega") || urlString.contains("drive.google")
-            let score = isSuspicious ? Int.random(in: 30...70) : Int.random(in: 85...100)
-            let threats: [String]
-            if score < 50 {
-                threats = ["Potential Malware", "Suspicious Origin"]
-            } else if score < 75 {
-                threats = ["Unverified Source"]
-            } else {
-                threats = []
-            }
-            let result = ScanResult(safetyScore: score, threats: threats, blocked: score < 50)
-            DispatchQueue.main.async { completion(result) }
-        }
-    }
+    // Safe Sign — scans files for safety before installing
+    @Published var safeSignEnabled: Bool = false
 
-    private func simulateInstall(app: AppItem) {
-        let now = Date()
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss.SSS"
+    // Smart Sign — requires network connection to sideload
+    @Published var smartSignEnabled: Bool = false
 
-        let steps: [(Double, String)] = [
-            (0.05, "[\(formatter.string(from: now))] Cydius installer initializing..."),
-            (0.10, "[\(formatter.string(from: now))] Resolving bundle: \(app.bundleID)"),
-            (0.18, "[\(formatter.string(from: now))] GET \(app.downloadURL)"),
-            (0.25, "[\(formatter.string(from: now))] HTTP/1.1 200 OK"),
-            (0.32, "[\(formatter.string(from: now))] Downloading \(app.size)..."),
-            (0.42, "[\(formatter.string(from: now))] Download complete. Verifying SHA256..."),
-            (0.50, "[\(formatter.string(from: now))] Signature check passed ✓"),
-            (0.58, "[\(formatter.string(from: now))] Extracting payload..."),
-            (0.65, "[\(formatter.string(from: now))] installd: installing \(app.bundleID)"),
-            (0.75, "[\(formatter.string(from: now))] Writing to /var/containers/Bundle/Application/"),
-            (0.85, "[\(formatter.string(from: now))] Registering with SpringBoard..."),
-            (0.92, "[\(formatter.string(from: now))] Finalizing install..."),
-            (1.00, "[\(formatter.string(from: now))] ✓ \(app.name) installed successfully!")
-        ]
+    // Certificates
+    @Published var certificates: [Certificate] = [
+        Certificate(
+            name: "Cydius Developer",
+            country: "US",
+            status: .valid,
+            expiry: Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date(),
+            isSelected: true
+        )
+    ]
 
-        for (i, step) in steps.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.6) {
-                self.installProgress = step.0
-                self.installLogs.append(step.1)
-                if step.0 >= 1.0 {
-                    var installed = app
-                    installed.isInstalled = true
-                    self.installedApps.append(installed)
-                    if let idx = self.featuredApps.firstIndex(where: { $0.id == app.id }) {
-                        self.featuredApps[idx].isInstalled = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        self.isInstalling = false
-                    }
-                }
+    @Published var selectedCertificateID: UUID? = nil
+
+    // Apple ID for signing
+    @Published var appleID: String = ""
+
+    // Stats
+    @Published var totalInstalled: Int = 1
+    @Published var totalSideloaded: Int = 0
+
+    func reinstallApp(_ app: AppModel) {
+        // Trigger reinstall logic
+        if let idx = apps.firstIndex(where: { $0.id == app.id }) {
+            apps[idx].isInstalled = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                self.apps[idx].isInstalled = true
             }
         }
     }
+
+    func selectCertificate(_ cert: Certificate) {
+        selectedCertificateID = cert.id
+    }
 }
 
-struct ScanResult {
-    let safetyScore: Int
-    let threats: [String]
-    let blocked: Bool
-}
+// MARK: - Models
 
-struct CydCertificate: Identifiable {
+struct Certificate: Identifiable {
     let id = UUID()
-    var name: String
-    var country: String
-    var status: CertStatus
-    var expiryDate: Date
+    let name: String
+    let country: String
+    let status: CertStatus
+    let expiry: Date
     var isSelected: Bool
 
     enum CertStatus {
-        case safe, revoked, expired
+        case valid, revoked, expired
+
+        var label: String {
+            switch self {
+            case .valid: return "Valid"
+            case .revoked: return "Revoked"
+            case .expired: return "Expired"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .valid: return .green
+            case .revoked: return .red
+            case .expired: return .orange
+            }
+        }
+    }
+
+    var expiryFormatted: String {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        return f.string(from: expiry)
+    }
+
+    var flagEmoji: String {
+        let base: UInt32 = 127397
+        return country.unicodeScalars.compactMap {
+            Unicode.Scalar(base + $0.value).map { String($0) }
+        }.joined()
     }
 }
