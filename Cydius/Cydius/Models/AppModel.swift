@@ -1,6 +1,6 @@
 import Foundation
 
-struct CydiusApp: Identifiable, Codable {
+struct AppItem: Identifiable, Codable {
     var id = UUID()
     var name: String
     var bundleID: String
@@ -8,11 +8,9 @@ struct CydiusApp: Identifiable, Codable {
     var developer: String
     var description: String
     var downloadURL: String
-    var iconURL: String
     var size: String
     var category: AppCategory
     var isInstalled: Bool = false
-    var installProgress: Double = 0
 
     enum AppCategory: String, Codable, CaseIterable {
         case tweaks = "Tweaks"
