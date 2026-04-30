@@ -37,7 +37,7 @@ class AppStore: ObservableObject {
     @Published var selectedCertificateID: UUID? = nil
 
     // Apple ID for signing
-        @Published var appleID: String = ""
+    @Published var appleID: String = ""
 
     // Computed properties for view access
     var installedApps: [AppModel] {
