@@ -27,13 +27,9 @@ class AppStore: ObservableObject {
         )
     ]
 
-    // Safe Sign — scans files for safety before installing
     @Published var safeSignEnabled: Bool = false
-
-    // Smart Sign — requires network connection to sideload
     @Published var smartSignEnabled: Bool = false
 
-    // Certificates
     @Published var certificates: [Certificate] = [
         Certificate(
             name: "Cydius Developer",
@@ -45,11 +41,8 @@ class AppStore: ObservableObject {
     ]
 
     @Published var selectedCertificateID: UUID? = nil
-
-    // Apple ID for signing
     @Published var appleID: String = ""
 
-    // Computed properties for view access
     var installedApps: [AppModel] {
         apps.filter { $0.isInstalled }
     }
@@ -62,12 +55,10 @@ class AppStore: ObservableObject {
         certificates.first { $0.id == selectedCertificateID }
     }
 
-    // Stats
     @Published var totalInstalled: Int = 1
     @Published var totalSideloaded: Int = 0
 
     func reinstallApp(_ app: AppModel) {
-        // Trigger reinstall logic
         var currentApps = apps
         if let idx = currentApps.firstIndex(where: { $0.id == app.id }) {
             currentApps[idx].isInstalled = false
@@ -86,8 +77,6 @@ class AppStore: ObservableObject {
         selectedCertificateID = cert.id
     }
 }
-
-// MARK: - Models
 
 struct Certificate: Identifiable {
     let id = UUID()
