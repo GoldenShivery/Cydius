@@ -1,73 +1,103 @@
-struct CertificateRow: View {
-    let cert: Certificate   // ← Changed from CydCertificate to Certificate
-    let isSelected: Bool
-    let onSelect: () -> Void
-    
-    var statusColor: Color {
-        switch cert.status {
-        case .safe: return .green
-        case .revoked: return .red
-        case .expired: return .orange
-        }
-    }
-    
-    var statusText: String {
-        switch cert.status {
-        case .safe: return "Valid"
-        case .revoked: return "Revoked"
-        case .expired: return "Expired"
-        }
-    }
-    
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 40, height: 40)
-                    Text(cert.country)
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                }
-                
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(cert.name)
-                        .foregroundColor(.white)
-                        .fontWeight(.semibold)
-                        .font(.subheadline)
-                    Text("Expires: \(cert.expiryDate, style: .date)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(statusText)
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundColor(statusColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(statusColor.opacity(0.15))
-                        .cornerRadius(8)
-                    
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.orange)
-                            .font(.caption)
-                    }
-                }
+import SwiftUI
+import Combine
+
+class AppStore: ObservableObject {
+    @Published var apps: [AppModel] = [
+        AppModel(
+            name: "Cydius",
+            bundleID: "com.cydius.app",
+            version: "1.0",
+            isInstalled: true
+        ),
+        AppModel(
+            name: "Cydius Lightweight",
+            bundleID: "com.cydius.lite",
+            version: "1.0",
+            isInstalled: false
+        )
+    ]
+
+    // Safe Sign — scans files for safety before installing
+    @Published var safeSignEnabled: Bool = false
+
+    // Smart Sign — requires network connection to sideload
+    @Published var smartSignEnabled: Bool = false
+
+    // Certificates
+    @Published var certificates: [Certificate] = [
+        Certificate(
+            name: "Cydius Developer",
+            country: "US",
+            status: .valid,
+            expiry: Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date(),
+            isSelected: true
+        )
+    ]
+
+    @Published var selectedCertificateID: UUID? = nil
+
+    // Apple ID for signing
+    @Published var appleID: String = ""
+
+    // Stats
+    @Published var totalInstalled: Int = 1
+    @Published var totalSideloaded: Int = 0
+
+    func reinstallApp(_ app: AppModel) {
+        // Trigger reinstall logic
+        if let idx = apps.firstIndex(where: { $0.id == app.id }) {
+            apps[idx].isInstalled = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                self.apps[idx].isInstalled = true
             }
-            .padding(12)
-            .background(isSelected ? Color.orange.opacity(0.1) : Color.white.opacity(0.06))
-            .cornerRadius(14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? Color.orange.opacity(0.5) : Color.clear, lineWidth: 1)
-            )
         }
+    }
+
+    func selectCertificate(_ cert: Certificate) {
+        selectedCertificateID = cert.id
+    }
+}
+
+// MARK: - Models
+
+struct Certificate: Identifiable {
+    let id = UUID()
+    let name: String
+    let country: String
+    let status: CertStatus
+    let expiry: Date
+    var isSelected: Bool
+
+    enum CertStatus {
+        case valid, revoked, expired
+
+        var label: String {
+            switch self {
+            case .valid: return "Valid"
+            case .revoked: return "Revoked"
+            case .expired: return "Expired"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .valid: return .green
+            case .revoked: return .red
+            case .expired: return .orange
+            }
+        }
+    }
+
+    var expiryFormatted: String {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        return f.string(from: expiry)
+    }
+
+    var flagEmoji: String {
+        let base: UInt32 = 127397
+        return country.unicodeScalars.compactMap {
+            Unicode.Scalar(base + $0.value).map { String($0) }
+        }.joined()
     }
 }
