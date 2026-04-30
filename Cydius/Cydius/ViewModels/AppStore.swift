@@ -7,12 +7,22 @@ class AppStore: ObservableObject {
             name: "Cydius",
             bundleID: "com.cydius.app",
             version: "1.0",
+            developer: "Cydius Team",
+            description: "Main sideloading app",
+            downloadURL: "https://cydius.app/download",
+            size: "15 MB",
+            category: .apps,
             isInstalled: true
         ),
         AppModel(
             name: "Cydius Lightweight",
             bundleID: "com.cydius.lite",
             version: "1.0",
+            developer: "Cydius Team",
+            description: "Lightweight version",
+            downloadURL: "https://cydius.app/lite",
+            size: "8 MB",
+            category: .apps,
             isInstalled: false
         )
     ]
@@ -58,10 +68,16 @@ class AppStore: ObservableObject {
 
     func reinstallApp(_ app: AppModel) {
         // Trigger reinstall logic
-        if let idx = apps.firstIndex(where: { $0.id == app.id }) {
-            apps[idx].isInstalled = false
+        var currentApps = apps
+        if let idx = currentApps.firstIndex(where: { $0.id == app.id }) {
+            currentApps[idx].isInstalled = false
+            apps = currentApps
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                self.apps[idx].isInstalled = true
+                var updatedApps = self.apps
+                if let i = updatedApps.firstIndex(where: { $0.id == app.id }) {
+                    updatedApps[i].isInstalled = true
+                    self.apps = updatedApps
+                }
             }
         }
     }
