@@ -1,9 +1,17 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @State private var searchText = ""
     @State private var selectedCategory: AppItem.AppCategory? = nil
+    @State private var showInstall = false
+    @State private var selectedApp: AppItem? = nil
+    @State private var showIPAPicker = false
+    @State private var showScanAlert = false
+    @State private var scanResult: ScanResult? = nil
+    @State private var isScanning = false
+    @State private var pendingIPAUrl: URL? = nil
 
     var filtered: [AppItem] {
         store.featuredApps.filter {
@@ -13,179 +21,192 @@ struct HomeView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // Header — just "Cydius" with your logo
-                    HStack {
-                        Text("Cydius")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                        Spacer()
-                        Image("AppIcon")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-                    .padding(.bottom, 20)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
 
-                    // Search
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.gray)
-                            .font(.system(size: 15))
-                        TextField("search apps, tweaks, tools...", text: $searchText)
-                            .foregroundColor(.white)
-                            .font(.system(size: 15))
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(Color(white: 0.1))
-                    .cornerRadius(12)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 16)
-
-                    // Category pills
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            CategoryPill(title: "All", isSelected: selectedCategory == nil) {
-                                selectedCategory = nil
+                        // Upload IPA button
+                        Button(action: { showIPAPicker = true }) {
+                            HStack {
+                                Image(systemName: "arrow.up.doc.fill")
+                                    .foregroundColor(.black)
+                                Text("Sideload IPA")
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.black)
                             }
-                            ForEach(AppItem.AppCategory.allCases, id: \.self) { cat in
-                                CategoryPill(title: cat.rawValue, isSelected: selectedCategory == cat) {
-                                    selectedCategory = selectedCategory == cat ? nil : cat
+                            .frame(maxWidth: .infinity)
+                            .padding(14)
+                            .background(Color.orange)
+                            .cornerRadius(14)
+                        }
+                        .padding(.horizontal)
+
+                        // Search bar
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.gray)
+                            TextField("Search", text: $searchText)
+                                .foregroundColor(.white)
+                        }
+                        .padding(10)
+                        .background(Color.white.opacity(0.08))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+
+                        // Category filter
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                CategoryChip(title: "All", selected: selectedCategory == nil) {
+                                    selectedCategory = nil
+                                }
+                                ForEach(AppItem.AppCategory.allCases, id: \.self) { cat in
+                                    CategoryChip(title: cat.rawValue, selected: selectedCategory == cat) {
+                                        selectedCategory = (selectedCategory == cat) ? nil : cat
+                                    }
                                 }
                             }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal, 20)
-                    }
-                    .padding(.bottom, 20)
 
-                    // Featured banner
-                    if searchText.isEmpty && selectedCategory == nil && !store.featuredApps.isEmpty {
-                        FeaturedBanner(app: store.featuredApps.first!) {
-                            store.beginInstall(app: store.featuredApps.first!)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 24)
-
-                        SectionHeader(title: "all apps")
-                    }
-
-                    // App list
-                    LazyVStack(spacing: 0) {
-                        ForEach(filtered) { app in
-                            AppRow(app: app) {
-                                store.beginInstall(app: app)
+                        // App list
+                        if filtered.isEmpty {
+                            VStack(spacing: 10) {
+                                Image(systemName: "tray")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.gray.opacity(0.4))
+                                Text("No apps here")
+                                    .foregroundColor(.gray)
+                                    .font(.subheadline)
                             }
-                            Divider()
-                                .background(Color(white: 0.12))
-                                .padding(.leading, 76)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 40)
+                        } else {
+                            VStack(spacing: 12) {
+                                ForEach(filtered) { app in
+                                    AppRow(app: app, onInstall: {
+                                        selectedApp = app
+                                        showInstall = true
+                                    }, onOpen: {
+                                        openApp(bundleID: app.bundleID)
+                                    }, onReinstall: {
+                                        selectedApp = app
+                                        showInstall = true
+                                    })
+                                }
+                            }
+                            .padding(.horizontal)
                         }
+
+                        Spacer(minLength: 80)
                     }
-                    .padding(.bottom, 100)
+                    .padding(.top, 12)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Image("CydiusLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 32)
                 }
             }
         }
-        .sheet(isPresented: $store.showInstallSheet) {
-            InstallSheetView()
-                .environmentObject(store)
+        .sheet(isPresented: $showInstall) {
+            if let app = selectedApp {
+                InstallSheetView(app: app)
+                    .environmentObject(store)
+            }
+        }
+        .fileImporter(
+            isPresented: $showIPAPicker,
+            allowedContentTypes: [UTType(filenameExtension: "ipa") ?? .data],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    handleIPASelected(url: url)
+                }
+            case .failure:
+                break
+            }
+        }
+        .alert("Scan Complete", isPresented: $showScanAlert) {
+            if scanResult?.blocked == false {
+                Button("Install Anyway") {
+                    if let url = pendingIPAUrl {
+                        store.installIPA(url: url)
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let r = scanResult {
+                Text(scanResultMessage(r))
+            }
+        }
+    }
+
+    func handleIPASelected(url: URL) {
+        if store.safeSignEnabled {
+            isScanning = true
+            store.scanURL(url.absoluteString) { result in
+                self.scanResult = result
+                self.pendingIPAUrl = url
+                self.isScanning = false
+                self.showScanAlert = true
+            }
+        } else {
+            store.installIPA(url: url)
+        }
+    }
+
+    func scanResultMessage(_ r: ScanResult) -> String {
+        var msg = "Safety Score: \(r.safetyScore)%\n"
+        if r.threats.isEmpty {
+            msg += "No threats detected. Safe to install."
+        } else {
+            msg += "Threats found:\n" + r.threats.joined(separator: "\n")
+            if r.blocked { msg += "\n\n⛔ Download blocked." }
+        }
+        return msg
+    }
+
+    func openApp(bundleID: String) {
+        if let url = URL(string: "\(bundleID)://") {
+            UIApplication.shared.open(url)
         }
     }
 }
 
-struct CategoryPill: View {
+struct CategoryChip: View {
     let title: String
-    let isSelected: Bool
+    let selected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(isSelected ? .black : .gray)
+                .font(.caption)
+                .fontWeight(.semibold)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(isSelected ? Color.orange : Color(white: 0.12))
+                .background(selected ? Color.orange : Color.white.opacity(0.1))
+                .foregroundColor(selected ? .black : .white)
                 .cornerRadius(20)
         }
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
-    }
-}
-
-struct FeaturedBanner: View {
-    let app: AppItem
-    let onInstall: () -> Void
-
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            RoundedRectangle(cornerRadius: 18)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.orange.opacity(0.85), Color.orange.opacity(0.3)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(height: 160)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("featured")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
-                    .tracking(1.5)
-                Text(app.name)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                Text(app.description)
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.8))
-                    .lineLimit(1)
-
-                Button(action: onInstall) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "arrow.down.circle.fill")
-                        Text("install")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .foregroundColor(.orange)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.white)
-                    .cornerRadius(20)
-                }
-                .padding(.top, 4)
-            }
-            .padding(18)
-        }
-    }
-}
-
-struct SectionHeader: View {
-    let title: String
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.gray)
-                .tracking(1.2)
-                .padding(.horizontal, 20)
-            Spacer()
-        }
-        .padding(.bottom, 10)
     }
 }
 
 struct AppRow: View {
     let app: AppItem
     let onInstall: () -> Void
+    let onOpen: () -> Void
+    let onReinstall: () -> Void
 
     var body: some View {
         HStack(spacing: 14) {
@@ -193,68 +214,63 @@ struct AppRow: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(Color.orange.opacity(0.15))
                     .frame(width: 54, height: 54)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.orange.opacity(0.3), lineWidth: 0.5)
-                    )
                 Text(String(app.name.prefix(1)))
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(.title2)
+                    .fontWeight(.bold)
                     .foregroundColor(.orange)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(app.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.headline)
                     .foregroundColor(.white)
                 Text(app.developer)
-                    .font(.system(size: 12))
+                    .font(.caption)
                     .foregroundColor(.gray)
-                HStack(spacing: 8) {
-                    Text(app.version)
-                        .font(.system(size: 11))
-                        .foregroundColor(.orange)
-                    Text("·")
-                        .foregroundColor(.gray)
-                        .font(.system(size: 11))
-                    Text(app.size)
-                        .font(.system(size: 11))
-                        .foregroundColor(.gray)
-                    Text("·")
-                        .foregroundColor(.gray)
-                        .font(.system(size: 11))
-                    Text(app.category.rawValue)
-                        .font(.system(size: 11))
-                        .foregroundColor(.gray)
-                }
+                Text(app.version + " • " + app.size)
+                    .font(.caption2)
+                    .foregroundColor(.gray.opacity(0.7))
             }
 
             Spacer()
 
-            Button(action: onInstall) {
-                HStack(spacing: 4) {
-                    Image(systemName: app.isInstalled ? "checkmark" : "arrow.down")
-                        .font(.system(size: 11, weight: .bold))
-                    Text(app.isInstalled ? "open" : "get")
-                        .font(.system(size: 13, weight: .semibold))
+            VStack(spacing: 6) {
+                if app.isInstalled {
+                    Button(action: onOpen) {
+                        Text("Open")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.8))
+                            .foregroundColor(.white)
+                            .cornerRadius(20)
+                    }
+                    Button(action: onReinstall) {
+                        Text("Reinstall")
+                            .font(.caption2)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.white.opacity(0.1))
+                            .foregroundColor(.gray)
+                            .cornerRadius(20)
+                    }
+                } else {
+                    Button(action: onInstall) {
+                        Text("GET")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(Color.orange)
+                            .foregroundColor(.black)
+                            .cornerRadius(20)
+                    }
                 }
-                .foregroundColor(app.isInstalled ? .gray : .orange)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(
-                    app.isInstalled
-                        ? Color(white: 0.12)
-                        : Color.orange.opacity(0.15)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(app.isInstalled ? Color(white: 0.2) : Color.orange.opacity(0.4), lineWidth: 0.5)
-                )
-                .cornerRadius(20)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(Color.black)
-        .contentShape(Rectangle())
+        .padding(12)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(16)
     }
 }
